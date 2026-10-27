@@ -8,6 +8,7 @@ it afterwards with `inspire image list/detail/set-visibility/delete`.
 
 from __future__ import annotations
 
+import shlex
 from typing import Optional
 
 from inspire.services.notebook.notebooks import resolve_saved_image_id
@@ -340,13 +341,13 @@ def save_image_cmd(
             visibility_warning = (
                 "Visibility was not updated. Retry with: "
                 f"inspire image set-visibility {image_label} "
-                f"--visibility {visibility_label}"
+                f"--visibility {visibility_label} --workspace {shlex.quote(workspace)}"
             )
     elif requested_visibility and not image_id:
         visibility_warning = (
             "Set visibility after the image appears with: "
             f"inspire image set-visibility {image_label} "
-            f"--visibility {visibility_label}"
+            f"--visibility {visibility_label} --workspace {shlex.quote(workspace)}"
         )
 
     ready = False
@@ -394,7 +395,7 @@ def save_image_cmd(
 
 _CANCEL_LEFTOVER_NOTE = (
     "The half-built image stays in the catalog as FAILED. "
-    "Remove it with: inspire image delete <name>:<version>"
+    "Remove it with: inspire image delete <name>:<version> --workspace <workspace>"
 )
 
 

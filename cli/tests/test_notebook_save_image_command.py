@@ -9,13 +9,16 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shlex
 from typing import Any
 
 import pytest
 from click.testing import CliRunner
 
 from inspire import config as config_module
+from inspire.cli.commands.image.image_commands import set_image_visibility_cmd
 from inspire.cli.commands.notebook import notebook_lookup as notebook_lookup_module
+from inspire.cli.commands.notebook import notebook_save_image as notebook_save_image_module
 from inspire.cli.main import main as cli_main
 from inspire.platform.web import browser_api as browser_api_module
 from inspire.platform.web import session as web_session_module
@@ -62,6 +65,25 @@ def _assert_safe_failure(output: str, expected: str) -> None:
     assert "/Users/alice/private.log" not in output
     assert "img-secret-123" not in output
     assert "request payload" not in output
+
+
+def _assert_visibility_warning_command_parses(
+    monkeypatch: pytest.MonkeyPatch, warning: str
+) -> None:
+    command = warning[warning.index("inspire ") :]
+    args = shlex.split(command)
+    assert args[:3] == ["inspire", "image", "set-visibility"]
+    captured: dict[str, Any] = {}
+    monkeypatch.setattr(
+        set_image_visibility_cmd,
+        "callback",
+        lambda **kwargs: captured.update(kwargs),
+    )
+
+    result = CliRunner().invoke(set_image_visibility_cmd, args[3:])
+
+    assert result.exit_code == 0, result.output
+    assert captured["workspace"] == "Test Workspace"
 
 
 def _patch_config_and_session(
@@ -360,17 +382,61 @@ def test_save_image_visibility_warning_is_compact_and_safe(
     )
 
     assert result.exit_code == 0, result.output
-    assert _json_data(result.output) == {
+    payload = _json_data(result.output)
+    assert payload == {
         "name": "saved-img:v1",
         "status": "saving",
         "flatten": False,
         "warning": (
             "Visibility was not updated. Retry with: "
-            "inspire image set-visibility saved-img:v1 --visibility public"
+            "inspire image set-visibility saved-img:v1 --visibility public "
+            "--workspace 'Test Workspace'"
         ),
     }
     assert "/Users/alice/private.log" not in result.output
     assert "img-saved-warning" not in result.output
+    _assert_visibility_warning_command_parses(monkeypatch, payload["warning"])
+
+
+def test_save_image_deferred_visibility_warning_quotes_workspace(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _patch_config_and_session(monkeypatch, tmp_path)
+    monkeypatch.setattr(
+        browser_api_module,
+        "save_notebook_as_image",
+        lambda **_kwargs: {"image": {}},
+    )
+    monkeypatch.setattr(
+        notebook_save_image_module,
+        "resolve_saved_image_id",
+        lambda *_args, **_kwargs: None,
+    )
+
+    result = CliRunner().invoke(
+        cli_main,
+        [
+            "--json",
+            "notebook",
+            "save-image",
+            "demo-notebook",
+            "--workspace",
+            "Test Workspace",
+            "-n",
+            "saved-img",
+            "--visibility",
+            "public",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    warning = _json_data(result.output)["warning"]
+    assert warning == (
+        "Set visibility after the image appears with: "
+        "inspire image set-visibility saved-img:v1 --visibility public "
+        "--workspace 'Test Workspace'"
+    )
+    _assert_visibility_warning_command_parses(monkeypatch, warning)
 
 
 def test_save_image_error_hides_internal_failure(

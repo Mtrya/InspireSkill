@@ -86,6 +86,7 @@ def test_cancel_save_reports_the_cancelled_save(
     assert "demo-notebook" in result.output
     # The half-built image survives the cancel; the user has to be told.
     assert "FAILED" in result.output
+    assert "inspire image delete <name>:<version> --workspace <workspace>" in result.output
     assert "notebook-abc" not in result.output
 
 
