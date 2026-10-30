@@ -340,13 +340,13 @@ def save_image_cmd(
         except Exception:
             visibility_warning = (
                 "Visibility was not updated. Retry with: "
-                f"inspire image set-visibility {image_label} "
+                f"inspire image set-visibility {shlex.quote(image_label)} "
                 f"--visibility {visibility_label} --workspace {shlex.quote(workspace)}"
             )
     elif requested_visibility and not image_id:
         visibility_warning = (
             "Set visibility after the image appears with: "
-            f"inspire image set-visibility {image_label} "
+            f"inspire image set-visibility {shlex.quote(image_label)} "
             f"--visibility {visibility_label} --workspace {shlex.quote(workspace)}"
         )
 
@@ -392,12 +392,6 @@ def save_image_cmd(
 # ---------------------------------------------------------------------------
 # cancel-save-image
 # ---------------------------------------------------------------------------
-
-_CANCEL_LEFTOVER_NOTE = (
-    "The half-built image stays in the catalog as FAILED. "
-    "Remove it with: inspire image delete <name>:<version> --workspace <workspace>"
-)
-
 
 @click.command("cancel-save-image")
 @click.argument("notebook", metavar="NAME")
@@ -477,7 +471,11 @@ def cancel_save_image_cmd(
         return
 
     click.echo(format_mutation_success("Image save", "cancelled", notebook_label))
-    click.echo(_CANCEL_LEFTOVER_NOTE)
+    click.echo(
+        "The half-built image stays in the catalog as FAILED. "
+        "Remove it with: inspire image delete <name>:<version> "
+        f"--workspace {shlex.quote(workspace)}"
+    )
 
 
 __all__ = [
